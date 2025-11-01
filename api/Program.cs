@@ -9,17 +9,27 @@ namespace AvalphaTechnologies.CommissionCalculator
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
-            // Register custom services
+            // Register custom application services
             builder.Services.AddScoped<ICommissionService, CommissionService>();
+
+            var corsPolicy = "_allowFrontend";
+
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy(corsPolicy, policy =>
+                {
+                    policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod();
+                });
+            });
 
             var app = builder.Build();
 
-            // middleware
             app.UseMiddleware<ExceptionHandlingMiddleware>();
 
             if (app.Environment.IsDevelopment())
@@ -29,6 +39,7 @@ namespace AvalphaTechnologies.CommissionCalculator
             }
 
             app.UseHttpsRedirection();
+            app.UseCors(corsPolicy);
             app.UseAuthorization();
 
             app.MapControllers();

@@ -8,7 +8,8 @@ function App() {
     foreignSalesCount: '',
     averageSaleAmount: ''
   });
-  
+
+  const [errors, setErrors] = useState({});
   const [results, setResults] = useState({
     avalphaTechnologiesCommission: 0,
     competitorCommission: 0
@@ -22,29 +23,77 @@ function App() {
       ...prev,
       [name]: value
     }));
+    setErrors(prev => ({ ...prev, [name]: '' })); // clear field error when user types
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    const { localSalesCount, foreignSalesCount, averageSaleAmount } = formData;
+
+    const maxSales = 1_000_000;
+    const maxAverage = 10_000_000;
+
+    if (localSalesCount === '' || localSalesCount < 0)
+      newErrors.localSalesCount = 'Local sales count must be 0 or more.';
+    else if (localSalesCount > maxSales)
+      newErrors.localSalesCount = `Local sales count cannot exceed ${maxSales}.`;
+
+    if (foreignSalesCount === '' || foreignSalesCount < 0)
+      newErrors.foreignSalesCount = 'Foreign sales count must be 0 or more.';
+    else if (foreignSalesCount > maxSales)
+      newErrors.foreignSalesCount = `Foreign sales count cannot exceed ${maxSales}.`;
+
+    if (averageSaleAmount === '' || averageSaleAmount < 0)
+      newErrors.averageSaleAmount = 'Average sale amount must be 0 or more.';
+    else if (averageSaleAmount > maxAverage)
+      newErrors.averageSaleAmount = `Average sale amount cannot exceed £${maxAverage}.`;
+
+    return newErrors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const validationErrors = validateForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
     setIsLoading(true);
-    
-    // TODO: Replace with actual API call to backend
-    setTimeout(() => {
-      // Mock calculation for now
-      const localCommission = parseFloat(formData.localSalesCount) * parseFloat(formData.averageSaleAmount) * 0.20;
-      const foreignCommission = parseFloat(formData.foreignSalesCount) * parseFloat(formData.averageSaleAmount) * 0.35;
-      const avalphaTechnologiesTotal = localCommission + foreignCommission;
-      
-      const competitorLocal = parseFloat(formData.localSalesCount) * parseFloat(formData.averageSaleAmount) * 0.02;
-      const competitorForeign = parseFloat(formData.foreignSalesCount) * parseFloat(formData.averageSaleAmount) * 0.0755;
-      const competitorTotal = competitorLocal + competitorForeign;
-      
-      setResults({
-        avalphaTechnologiesCommission: avalphaTechnologiesTotal.toFixed(2),
-        competitorCommission: competitorTotal.toFixed(2)
+    setErrors({});
+
+    try {
+      const response = await fetch('https://localhost:5000/api/Commission/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          localSalesCount: Number(formData.localSalesCount),
+          foreignSalesCount: Number(formData.foreignSalesCount),
+          averageSaleAmount: Number(formData.averageSaleAmount)
+        })
       });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        console.error('API Error:', errData);
+        alert('⚠️ Validation error from server. Check your inputs.');
+        setIsLoading(false);
+        return;
+      }
+
+      const data = await response.json();
+
+      setResults({
+        avalphaTechnologiesCommission: data.avalphaTechnologies?.total || 0,
+        competitorCommission: data.competitor?.total || 0
+      });
+    } catch (err) {
+      console.error('Error calculating commission:', err);
+      alert('❌ Failed to calculate commission. Please ensure backend is running and accessible.');
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -64,8 +113,8 @@ function App() {
             <form onSubmit={handleSubmit} className="calculator-form">
               <div className="form-group">
                 <label htmlFor="localSalesCount">Local Sales Count</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   id="localSalesCount"
                   name="localSalesCount"
                   value={formData.localSalesCount}
@@ -73,12 +122,15 @@ function App() {
                   placeholder="Enter number of local sales"
                   required
                 />
+                {errors.localSalesCount && (
+                  <small className="error-text">{errors.localSalesCount}</small>
+                )}
               </div>
 
               <div className="form-group">
                 <label htmlFor="foreignSalesCount">Foreign Sales Count</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   id="foreignSalesCount"
                   name="foreignSalesCount"
                   value={formData.foreignSalesCount}
@@ -86,12 +138,15 @@ function App() {
                   placeholder="Enter number of foreign sales"
                   required
                 />
+                {errors.foreignSalesCount && (
+                  <small className="error-text">{errors.foreignSalesCount}</small>
+                )}
               </div>
-              
+
               <div className="form-group">
                 <label htmlFor="averageSaleAmount">Average Sale Amount (£)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   step="0.01"
                   id="averageSaleAmount"
                   name="averageSaleAmount"
@@ -100,10 +155,13 @@ function App() {
                   placeholder="Enter average sale amount"
                   required
                 />
+                {errors.averageSaleAmount && (
+                  <small className="error-text">{errors.averageSaleAmount}</small>
+                )}
               </div>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className={`calculate-btn ${isLoading ? 'loading' : ''}`}
                 disabled={isLoading}
               >
@@ -124,7 +182,7 @@ function App() {
                   £{results.avalphaTechnologiesCommission}
                 </div>
               </div>
-              
+
               <div className="result-card competitor-card">
                 <div className="result-header">
                   <h4>Competitor</h4>
@@ -135,12 +193,17 @@ function App() {
                 </div>
               </div>
             </div>
-            
+
             {results.avalphaTechnologiesCommission > 0 && (
               <div className="advantage-indicator">
                 <p className="advantage-text">
-                  Avalpha Technologies advantage: 
-                  <strong> £{(results.avalphaTechnologiesCommission - results.competitorCommission).toFixed(2)}</strong>
+                  Avalpha Technologies advantage:
+                  <strong>
+                    {' '}
+                    £
+                    {(results.avalphaTechnologiesCommission -
+                      results.competitorCommission).toFixed(2)}
+                  </strong>
                 </p>
               </div>
             )}
