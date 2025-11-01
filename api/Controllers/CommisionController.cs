@@ -1,33 +1,34 @@
+using AvalphaTechnologies.CommissionCalculator.Models;
+using AvalphaTechnologies.CommissionCalculator.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AvalphaTechnologies.CommissionCalculator.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
-    public class CommisionController : ControllerBase
+    [Route("api/[controller]")]
+    public class CommissionController : ControllerBase
     {
-        [ProducesResponseType(typeof(CommissionCalculationResponse), 200)]
-        [HttpPost]
-        public IActionResult Calculate(CommissionCalculationRequest calculationRequest)
+        private readonly ICommissionService _commissionService;
+
+        public CommissionController(ICommissionService commissionService)
         {
-            return Ok(new CommissionCalculationResponse() { 
-                AvalphaTechnologiesCommissionAmount = 999,
-                CompetitorCommissionAmount = 100
-            });
+            _commissionService = commissionService;
         }
-    }
 
-    public class CommissionCalculationRequest
-    {
-        public int LocalSalesCount { get; set; }
-        public int ForeignSalesCount { get; set; }
-        public decimal AverageSaleAmount { get; set; }
-    }
+        [HttpPost("calculate")]
+        [ProducesResponseType(typeof(CommissionCalculationResponse), 200)]
+        [ProducesResponseType(400)]
+        public IActionResult Calculate([FromBody] CommissionCalculationRequest request)
+        {
+            if (request == null)
+                return BadRequest("Request body is required.");
 
-    public class CommissionCalculationResponse
-    {
-        public decimal AvalphaTechnologiesCommissionAmount { get; set; }
+            var validationErrors = request.Validate();
+            if (validationErrors.Any())
+                return BadRequest(new { Errors = validationErrors });
 
-        public decimal CompetitorCommissionAmount { get; set; }
+            var result = _commissionService.Calculate(request);
+            return Ok(result);
+        }
     }
 }

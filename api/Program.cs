@@ -1,3 +1,5 @@
+using AvalphaTechnologies.CommissionCalculator.Middlewares;
+using AvalphaTechnologies.CommissionCalculator.Services;
 
 namespace AvalphaTechnologies.CommissionCalculator
 {
@@ -7,16 +9,19 @@ namespace AvalphaTechnologies.CommissionCalculator
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
-
+            // Add services to the container
             builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+            // Register custom services
+            builder.Services.AddScoped<ICommissionService, CommissionService>();
+
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
+            // middleware
+            app.UseMiddleware<ExceptionHandlingMiddleware>();
+
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -24,9 +29,7 @@ namespace AvalphaTechnologies.CommissionCalculator
             }
 
             app.UseHttpsRedirection();
-
             app.UseAuthorization();
-
 
             app.MapControllers();
 
